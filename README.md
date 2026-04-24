@@ -6,7 +6,7 @@
 
 ## Demo
 
-https://github.com/user-attachments/assets/placeholder-demo.mp4
+https://drive.google.com/file/d/1XDB2yBNrEXp0AMTQ3k_FU4SkHitzYpin/view?usp=sharing
 
 ---
 
