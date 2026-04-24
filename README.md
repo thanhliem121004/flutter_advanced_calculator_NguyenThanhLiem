@@ -1,124 +1,88 @@
 # Máy Tính Nâng Cao - Flutter Advanced Calculator
 
-## Thông Tin Sinh Viên
-
-- **Họ tên:** Nguyễn Thanh Liêm
-- **MSSV:** 2224802010267
-- **Lớp:** CNTT-K26
+**Nguyễn Thanh Liêm - 2224802010267**
 
 ---
 
-## Mô Tả Dự Án
+## Demo
 
-Đây là ứng dụng máy tính nâng cao được xây dựng bằng Flutter, hỗ trợ ba chế độ tính toán: Cơ Bản, Khoa Học, và Lập Trình Viên. Dự án sử dụng Provider cho quản lý trạng thái, SharedPreferences cho lưu trữ dữ liệu.
+https://github.com/user-attachments/assets/placeholder-demo.mp4
+
+---
+
+## Hình Ảnh
+
+| 1 | 2 | 3 |
+|---|---|---|
+| ![1](screenshots/1.png) | ![2](screenshots/2.png) | ![3](screenshots/3.png) |
+
+| 4 | 5 | 6 | 7 |
+|---|---|---|---|
+| ![4](screenshots/4.png) | ![5](screenshots/5.png) | ![6](screenshots/6.png) | ![7](screenshots/7.png) |
 
 ---
 
-## Tính Năng Chính
+## Tính Năng
 
-### Chế Độ Máy Tính
-
-1. **Chế Độ Cơ Bản** - Các phép tính + - × ÷ %, hỗ trợ dấu ngoặc, đổi dấu, xóa ký tự
-2. **Chế Độ Khoa Học** - sin, cos, tan, asin, acos, atan, log, ln, sqrt, cbrt, lũy thừa, giai thừa, hằng số π và e
-3. **Chế Độ Lập Trình Viên** - Chuyển đổi cơ số (BIN/OCT/DEC/HEX), phép toán bitwise (AND, OR, XOR, NOT, SHL, SHR)
-
-### Tính Năng Nâng Cao
-
-- **Bộ nhớ (M+, M-, MR, MC)** - Lưu và sử dụng giá trị trong bộ nhớ
-- **Lịch sử tính toán** - Lưu tối đa 100 phép tính gần nhất, có thể xóa từng mục hoặc xóa tất cả
-- **Chế độ DEG/RAD** - Chuyển đổi đơn vị góc cho các phép tính lượng giác
-- **Độ chính xác thập phân** - Từ 2 đến 10 chữ số thập phân
-- **Hỗ trợ Dark/Light Theme** - Chuyển đổi giữa hai chế độ giao diện
-- **Haptic Feedback & Âm thanh** - Bật/tắt trong cài đặt
-- **Vuốt xóa ký tự** - Vuốt phải để xóa
-- **Zoom thu phóng** - Chụm để thay đổi cỡ chữ
-- **Hoạt ảnh rung** - Khi có lỗi tính toán
-
----
+- **Chế độ Cơ Bản:** +, -, ×, ÷, %, dấu ngoặc, đổi dấu, xóa ký tự
+- **Chế độ Khoa Học:** sin, cos, tan, asin, acos, atan, log, ln, sqrt, cbrt, lũy thừa, giai thừa, π, e
+- **Chế độ Lập Trình Viên:** Chuyển đổi cơ số (BIN/OCT/DEC/HEX), bitwise (AND, OR, XOR, NOT, SHL, SHR)
+- **Bộ nhớ (M+, M-, MR, MC)**
+- **Lịch sử tính toán** (tối đa 100 bản ghi)
+- **Chế độ DEG/RAD**
+- **Độ chính xác thập phân** (2-10 chữ số)
+- **Dark/Light Theme**
+- **Haptic Feedback & Âm thanh**
+- **Vuốt xóa ký tự**
+- **Zoom thu phóng**
 
 ## Cấu Trúc Dự Án
 
 ```
 lib/
-├── main.dart                          # Entry point, cấu hình Provider
+├── main.dart
 ├── models/
-│   ├── calculator_mode.dart           # Enum chế độ máy tính
-│   ├── calculator_settings.dart        # Cấu hình người dùng
-│   └── calculation_history.dart       # Bản ghi lịch sử
+│   ├── calculator_mode.dart
+│   ├── calculator_settings.dart
+│   └── calculation_history.dart
 ├── providers/
-│   ├── calculator_provider.dart       # Logic tính toán, state management
-│   ├── history_provider.dart          # Quản lý lịch sử tính toán
-│   └── theme_provider.dart            # Quản lý giao diện (Dark/Light)
+│   ├── calculator_provider.dart
+│   ├── history_provider.dart
+│   └── theme_provider.dart
 ├── screens/
-│   ├── calculator_screen.dart         # Màn hình chính
-│   ├── history_screen.dart            # Màn hình lịch sử
-│   └── settings_screen.dart           # Màn hình cài đặt
+│   ├── calculator_screen.dart
+│   ├── history_screen.dart
+│   └── settings_screen.dart
 ├── services/
-│   └── storage_service.dart          # Lưu trữ SharedPreferences
+│   └── storage_service.dart
 ├── utils/
-│   ├── calculator_logic.dart         # Các hàm tính toán cơ bản
-│   ├── constants.dart                # Hằng số: màu sắc, font, kích thước
-│   └── expression_parser.dart        # Xử lý biểu thức toán học (recursive descent parser)
+│   ├── calculator_logic.dart
+│   ├── constants.dart
+│   └── expression_parser.dart
 └── widgets/
-    ├── button_grid.dart              # Lưới nút bấm
-    ├── calculator_button.dart        # Nút bấm đơn lẻ với animation
-    ├── display_area.dart             # Khung hiển thị kết quả
-    └── mode_selector.dart            # Bộ chọn chế độ
+    ├── button_grid.dart
+    ├── calculator_button.dart
+    ├── display_area.dart
+    └── mode_selector.dart
 ```
-
----
-
-## Bảng Màu Thiết Kế
-
-| Thuộc tính   | Light Theme | Dark Theme  |
-|--------------|-------------|------------|
-| Background   | #F5F5F5     | #0D0D0D    |
-| Surface      | #FFFFFF     | #1E1E1E    |
-| Accent       | #FF6B6B     | #4ECDC4    |
-| Text         | #1E1E1E     | #FFFFFF    |
-
----
 
 ## Hướng Dẫn Cài Đặt
 
-### Yêu Cầu
-
-- Flutter SDK >= 3.0
-- Dart SDK >= 3.0
-- Android SDK (cho build Android)
-
-### Các Bước Cài Đặt
-
-1. **Clone repository:**
-```bash
-git clone https://github.com/thanhliem121004/flutter_advanced_calculator_NguyenThanhLiem.git
-cd flutter_advanced_calculator_NguyenThanhLiem
-```
-
-2. **Cài đặt dependencies:**
 ```bash
 flutter pub get
-```
-
-3. **Chạy ứng dụng:**
-```bash
 flutter run
-```
-
-4. **Build APK:**
-```bash
 flutter build apk --debug
 ```
 
+## Bảng Màu
+
+| | Light Theme | Dark Theme |
+|---|---|---|
+| Background | #F5F5F5 | #0D0D0D |
+| Surface | #FFFFFF | #1E1E1E |
+| Accent | #FF6B6B | #4ECDC4 |
+| Text | #1E1E1E | #FFFFFF |
+
 ---
 
-## Hạn Chế
-
-- Chế độ programmer chỉ hỗ trợ số nguyên
-- Không hỗ trợ số phức
-
----
-
-## License
-
-Dự án học tập - Không dùng cho mục đích thương mại.
+Dự án học tập - Nguyễn Thanh Liêm - 2224802010267
