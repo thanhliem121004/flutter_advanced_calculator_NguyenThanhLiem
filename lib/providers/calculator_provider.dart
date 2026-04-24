@@ -1,54 +1,144 @@
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'package:math_expressions/math_expressions.dart';
 import '../models/calculator_mode.dart';
 import '../models/calculator_settings.dart';
 import '../services/storage_service.dart';
 import '../utils/calculator_logic.dart';
+import '../utils/expression_parser.dart';
 
 class CalculatorProvider extends ChangeNotifier {
   final StorageService _storageService;
-  final CalculatorLogic _logic = CalculatorLogic();
 
   CalculatorMode _mode = CalculatorMode.basic;
   AngleMode _angleMode = AngleMode.degrees;
   int _precision = 10;
-  String _display = '0';
+
+  // _expression: biểu thức đang nhập (hiển thị chính)
+  // _result: kết quả sau khi ấn =
+  // _previousExpression: biểu thức trước đó (hiển thị phụ)
   String _expression = '';
+  String _result = '0';
+  String _previousExpression = '';
+
   String _memory = '0';
   bool _hasMemory = false;
   String? _errorMessage;
   bool _isSecondFunction = false;
+  bool _hasError = false;
   int _base = 10;
-  String _programmerInput = '';
-  int? _pendingBitwiseOp;
-  int? _previousValue;
-  String? _lastOperator;
 
   CalculatorProvider(this._storageService);
 
   CalculatorMode get mode => _mode;
   AngleMode get angleMode => _angleMode;
   int get precision => _precision;
-  String get display => _display;
-  String get expression => _expression;
-  String get memory => _memory;
   bool get hasMemory => _hasMemory;
   String? get errorMessage => _errorMessage;
   bool get isSecondFunction => _isSecondFunction;
   int get base => _base;
   bool get isRadiansMode => _angleMode == AngleMode.radians;
+  String get memory => _memory;
+
+  // display: hiển thị chính (dòng lớn)
+  //   Khi đang nhập: hiển thị biểu thức (_expression)
+  //   Khi có kết quả: hiển thị kết quả (_result)
+  String get display {
+    if (_expression.isNotEmpty) {
+      if (_mode == CalculatorMode.programmer && _base != 10) {
+        return _formatProgrammerExpression(_expression, _base);
+      }
+      return _expression;
+    }
+    return _result;
+  }
+
+  // expression: hiển thị phụ (dòng nhỏ phía trên)
+  String get expression => _previousExpression;
+
+  String _formatProgrammerExpression(String expr, int base) {
+    String prefix;
+    switch (base) {
+      case 16:
+        prefix = '0x';
+        break;
+      case 2:
+        prefix = '0b';
+        break;
+      case 8:
+        prefix = '0o';
+        break;
+      default:
+        return expr;
+    }
+
+    StringBuffer result = StringBuffer();
+    StringBuffer currentNum = StringBuffer();
+
+    for (int i = 0; i < expr.length; i++) {
+      final c = expr[i];
+      final isHexChar =
+          (c.codeUnitAt(0) >= 48 && c.codeUnitAt(0) <= 57) ||
+          (c.codeUnitAt(0) >= 65 && c.codeUnitAt(0) <= 70) ||
+          (c.codeUnitAt(0) >= 97 && c.codeUnitAt(0) <= 102);
+
+      if (isHexChar) {
+        currentNum.write(c);
+      } else {
+        if (currentNum.isNotEmpty) {
+          result.write(prefix);
+          result.write(currentNum);
+          currentNum.clear();
+        }
+        String op = c;
+        if (i + 1 < expr.length) {
+          String twoChar = expr.substring(
+            i,
+            i + 2 > expr.length ? expr.length : i + 2,
+          );
+          if (twoChar == '^^') {
+            op = ' XOR ';
+            i++;
+          } else if (twoChar == '<<') {
+            op = ' SHL ';
+            i++;
+          } else if (twoChar == '>>') {
+            op = ' SHR ';
+            i++;
+          } else if (c == '&') {
+            op = ' AND ';
+          } else if (c == '|') {
+            op = ' OR ';
+          } else if (c == '~') {
+            op = 'NOT ';
+          } else if (c == '×' || c == '÷' || c == '+' || c == '-') {
+            op = ' $c ';
+          }
+        } else {
+          if (c == '&')
+            op = ' AND ';
+          else if (c == '|')
+            op = ' OR ';
+          else if (c == '~')
+            op = 'NOT ';
+          else if (c == '×' || c == '÷' || c == '+' || c == '-')
+            op = ' $c ';
+        }
+        result.write(op);
+      }
+    }
+    if (currentNum.isNotEmpty) {
+      result.write(prefix);
+      result.write(currentNum);
+    }
+    return result.toString();
+  }
 
   Future<void> loadSettings() async {
     final settings = await _storageService.loadSettings();
     _mode = settings.defaultMode;
     _angleMode = settings.angleMode;
     _precision = settings.decimalPrecision;
-    _logic.precision = _precision;
-    _logic.radiansMode = _angleMode == AngleMode.radians;
     _memory = await _storageService.loadMemory();
     _hasMemory = _memory != '0';
-    _logic.setMemory(_memory);
     notifyListeners();
   }
 
@@ -63,29 +153,27 @@ class CalculatorProvider extends ChangeNotifier {
 
   void setMode(CalculatorMode newMode) {
     _mode = newMode;
-    _display = '0';
     _expression = '';
+    _result = '0';
+    _previousExpression = '';
     _errorMessage = null;
-    _programmerInput = '';
-    _pendingBitwiseOp = null;
-    _previousValue = null;
-    _lastOperator = null;
+    _hasError = false;
     notifyListeners();
   }
 
   void setAngleMode(AngleMode mode) {
     _angleMode = mode;
-    _logic.radiansMode = mode == AngleMode.radians;
     notifyListeners();
   }
 
   void toggleAngleMode() {
-    setAngleMode(_angleMode == AngleMode.degrees ? AngleMode.radians : AngleMode.degrees);
+    setAngleMode(
+      _angleMode == AngleMode.degrees ? AngleMode.radians : AngleMode.degrees,
+    );
   }
 
   void setPrecision(int value) {
     _precision = value;
-    _logic.precision = value;
     notifyListeners();
   }
 
@@ -104,75 +192,80 @@ class CalculatorProvider extends ChangeNotifier {
 
     switch (value) {
       case 'C':
-        _display = '0';
         _expression = '';
-        _lastOperator = null;
-        _logic.clearAll();
+        _result = '0';
+        _previousExpression = '';
+        _hasError = false;
         break;
       case 'CE':
-        _display = '0';
-        _logic.clearEntry();
+        _expression = '';
+        _hasError = false;
         break;
       case '⌫':
-        _onBackspace();
+        _deleteLastCharacter();
         break;
       case '=':
-        _onEquals();
+        _calculateResult();
         break;
       case '±':
-        _onToggleSign();
+        _toggleSign();
         break;
       case '+':
       case '−':
       case '×':
       case '÷':
-        _onOperator(value);
+        _appendOperator(value);
         break;
       case '%':
-        _onPercentage();
+        _appendOperator('%');
         break;
       case '(':
       case ')':
-        _onParenthesis(value);
+        _appendParenthesis(value);
         break;
       case '.':
-        _onDecimal();
+        _appendDecimal();
         break;
       case 'π':
       case 'Π':
-        _onConstant(math.pi);
+        _insertConstant('π');
         break;
       case 'e':
-        _onConstant(math.e);
+        _insertConstant('e');
         break;
       case 'sin':
       case 'cos':
       case 'tan':
-        _onTrigFunction(value);
+        _applyFunction(value);
+        break;
+      case 'asin':
+      case 'acos':
+      case 'atan':
+        _applyFunction(value);
         break;
       case 'ln':
-        _onLogFunction('ln');
+        _applyFunction('ln');
         break;
       case 'log':
-        _onLogFunction('log');
+        _applyFunction('log');
         break;
       case 'x²':
-        _onPower(2);
+        _applySquare();
         break;
       case 'x³':
-        _onPower(3);
+        _applyCube();
         break;
       case 'xʸ':
-        _onOperator('^');
+        _applyPower();
         break;
       case '√':
-        _onSquareRoot();
+        _applySqrt();
         break;
       case '∛':
-        _onCubeRoot();
+        _applyFunction('cbrt');
         break;
       case '!':
-        _onFactorial();
+        _applyFactorial();
         break;
       case 'M+':
         _onMemoryAdd();
@@ -195,190 +288,283 @@ class CalculatorProvider extends ChangeNotifier {
         break;
       default:
         if (RegExp(r'^[0-9]$').hasMatch(value)) {
-          _onDigit(value);
+          _appendNumber(value);
         }
     }
 
     notifyListeners();
   }
 
-  void _onDigit(String digit) {
-    if (_display == '0') {
-      _display = digit;
-    } else if (_logic.shouldResetInput) {
-      _display = digit;
-      _logic.setShouldResetInput(false);
-    } else {
-      _display += digit;
+  // === INPUT METHODS (giống main project) ===
+
+  void _appendNumber(String number) {
+    if (_hasError) {
+      _expression = '';
+      _result = '0';
+      _hasError = false;
+    }
+    _expression += number;
+  }
+
+  void _appendOperator(String op) {
+    if (_hasError) {
+      _expression = _result != 'Lỗi' ? _result : '';
+      _hasError = false;
+    }
+    // Nếu expression rỗng và có kết quả trước đó, dùng kết quả
+    if (_expression.isEmpty && _result != '0' && _result != 'Lỗi') {
+      _expression = _result;
+    }
+    // Thay thế toán tử cuối nếu đã có
+    if (_expression.isNotEmpty) {
+      final last = _expression[_expression.length - 1];
+      if (['+', '−', '×', '÷', '%'].contains(last)) {
+        _expression = _expression.substring(0, _expression.length - 1);
+      }
+    }
+    _expression += op;
+  }
+
+  void _appendDecimal() {
+    if (_hasError) {
+      _expression = '0';
+      _hasError = false;
+    }
+    // Kiểm tra số hiện tại đã có dấu chấm chưa
+    final parts = _expression.split(RegExp(r'[+\-×÷%\(\)]'));
+    final lastPart = parts.isNotEmpty ? parts.last : '';
+    if (!lastPart.contains('.')) {
+      if (_expression.isEmpty ||
+          !RegExp(r'[0-9]').hasMatch(_expression[_expression.length - 1])) {
+        _expression += '0';
+      }
+      _expression += '.';
     }
   }
 
-  void _onBackspace() {
-    if (_display.length > 1) {
-      _display = _display.substring(0, _display.length - 1);
-      if (_display == '-') _display = '0';
+  void _appendParenthesis(String paren) {
+    if (_hasError) {
+      _expression = '';
+      _hasError = false;
+    }
+    if (paren == '(') {
+      int openCount = '('.allMatches(_expression).length;
+      int closeCount = ')'.allMatches(_expression).length;
+
+      if (_expression.isEmpty ||
+          _expression.endsWith('(') ||
+          [
+            '+',
+            '−',
+            '×',
+            '÷',
+            '%',
+          ].contains(_expression[_expression.length - 1])) {
+        _expression += '(';
+      } else if (openCount > closeCount) {
+        _expression += ')';
+      } else {
+        _expression += '(';
+      }
     } else {
-      _display = '0';
+      _expression += ')';
     }
   }
 
-  void _onEquals() {
+  void _insertConstant(String constant) {
+    if (_hasError) {
+      _expression = '';
+      _hasError = false;
+    }
+    _expression += constant;
+  }
+
+  void _applyFunction(String funcName) {
+    if (_hasError) {
+      _expression = '';
+      _hasError = false;
+    }
+    _expression += '$funcName(';
+  }
+
+  void _applySquare() {
+    if (_expression.isNotEmpty) {
+      _expression = '($_expression)^2';
+    } else if (_result != '0' && _result != 'Lỗi') {
+      _expression = '($_result)^2';
+    }
+  }
+
+  void _applyCube() {
+    if (_expression.isNotEmpty) {
+      _expression = '($_expression)^3';
+    } else if (_result != '0' && _result != 'Lỗi') {
+      _expression = '($_result)^3';
+    }
+  }
+
+  void _applyPower() {
+    if (_expression.isEmpty && _result != '0' && _result != 'Lỗi') {
+      _expression = '$_result^';
+    } else if (_expression.isNotEmpty) {
+      _expression += '^';
+    }
+  }
+
+  void _applySqrt() {
+    if (_hasError) {
+      _expression = '';
+      _hasError = false;
+    }
+    if (_expression.isEmpty && _result != '0' && _result != 'Lỗi') {
+      _expression = 'sqrt($_result)';
+    } else {
+      _expression += 'sqrt(';
+    }
+  }
+
+  void _applyFactorial() {
+    if (_expression.isNotEmpty) {
+      _expression = '($_expression)!';
+    } else if (_result != '0' && _result != 'Lỗi') {
+      _expression = '($_result)!';
+    }
+  }
+
+  void _toggleSign() {
+    if (_expression.isNotEmpty) {
+      if (_expression.startsWith('-')) {
+        _expression = _expression.substring(1);
+      } else {
+        _expression = '-$_expression';
+      }
+    } else if (_result != '0' && _result != 'Lỗi') {
+      if (_result.startsWith('-')) {
+        _result = _result.substring(1);
+      } else {
+        _result = '-$_result';
+      }
+    }
+  }
+
+  void _deleteLastCharacter() {
+    if (_expression.isNotEmpty) {
+      // Xóa cả tên hàm nếu đang ở cuối
+      final funcPatterns = [
+        'sin(',
+        'cos(',
+        'tan(',
+        'asin(',
+        'acos(',
+        'atan(',
+        'ln(',
+        'log(',
+        'sqrt(',
+        'cbrt(',
+      ];
+      bool found = false;
+      for (final func in funcPatterns) {
+        if (_expression.toLowerCase().endsWith(func)) {
+          _expression = _expression.substring(
+            0,
+            _expression.length - func.length,
+          );
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        _expression = _expression.substring(0, _expression.length - 1);
+      }
+    }
+  }
+
+  void _calculateResult() {
     if (_expression.isEmpty) return;
 
-    String fullExpr = _expression + _display;
-    String result = _evaluate(fullExpr);
-
-    _logic.setLastResult(double.tryParse(result));
-    _display = result;
-    _expression = '';
-    _lastOperator = null;
-    _logic.setShouldResetInput(true);
-  }
-
-  void _onToggleSign() {
-    if (_display.startsWith('-')) {
-      _display = _display.substring(1);
-    } else if (_display != '0') {
-      _display = '-$_display';
+    String exprToEval = _expression;
+    if (_mode == CalculatorMode.programmer && _base != 10) {
+      exprToEval = _addBasePrefixes(_expression, _base);
     }
-  }
 
-  void _onOperator(String op) {
-    String opReplace = op == '÷' ? '/' : (op == '×' ? '*' : op);
+    final parser = ExpressionParser(angleMode: _angleMode);
+    final evalResult = parser.evaluate(exprToEval, precision: _precision);
 
-    if (_expression.isNotEmpty && _display == '0') {
-      _expression = _expression.substring(0, _expression.length - 1) + opReplace;
-      _lastOperator = op;
-      _logic.setShouldResetInput(true);
+    _previousExpression = _expression;
+
+    if (evalResult == 'Lỗi') {
+      _result = 'Lỗi';
+      _hasError = true;
+      _expression = '';
       return;
     }
 
-    if (_expression.isNotEmpty) {
-      String exprToEval = _expression + _display;
-      String result = _evaluate(exprToEval);
-      if (result != 'Lỗi' && result != 'Vô cực') {
-        _display = result;
-        _logic.setLastResult(double.tryParse(result));
+    if (_mode == CalculatorMode.programmer) {
+      final intVal = double.tryParse(evalResult)?.toInt();
+      if (intVal != null) {
+        _result = CalculatorLogic.toBase(intVal, _base);
+      } else {
+        _result = evalResult;
+      }
+    } else {
+      _result = evalResult;
+    }
+
+    _expression = '';
+  }
+
+  String _addBasePrefixes(String expr, int base) {
+    String prefix;
+    switch (base) {
+      case 16:
+        prefix = '0x';
+        break;
+      case 2:
+        prefix = '0b';
+        break;
+      case 8:
+        prefix = '0o';
+        break;
+      default:
+        return expr;
+    }
+
+    StringBuffer result = StringBuffer();
+    StringBuffer currentNum = StringBuffer();
+
+    for (int i = 0; i < expr.length; i++) {
+      final c = expr[i];
+      final isHexChar =
+          (c.codeUnitAt(0) >= 48 && c.codeUnitAt(0) <= 57) ||
+          (c.codeUnitAt(0) >= 65 && c.codeUnitAt(0) <= 70) ||
+          (c.codeUnitAt(0) >= 97 && c.codeUnitAt(0) <= 102) ||
+          c == '.';
+
+      if (isHexChar) {
+        currentNum.write(c);
+      } else {
+        if (currentNum.isNotEmpty) {
+          result.write(prefix);
+          result.write(currentNum);
+          currentNum.clear();
+        }
+        result.write(c);
       }
     }
-
-    _expression = _display + opReplace;
-    _display = '0';
-    _lastOperator = op;
-    _logic.setShouldResetInput(true);
-  }
-
-  void _onPercentage() {
-    try {
-      double current = double.parse(_display);
-      double? lastResult = _logic.lastResult;
-      double pct = lastResult != null ? lastResult * current / 100 : current / 100;
-      _display = _logic.formatResult(pct.toString());
-    } catch (_) {}
-  }
-
-  void _onParenthesis(String paren) {
-    _expression += paren;
-  }
-
-  void _onDecimal() {
-    if (!_display.contains('.')) {
-      _display = '$_display.';
+    if (currentNum.isNotEmpty) {
+      result.write(prefix);
+      result.write(currentNum);
     }
+    return result.toString();
   }
 
-  void _onConstant(double value) {
-    _display = value == math.pi
-        ? math.pi.toStringAsFixed(_precision)
-        : math.e.toStringAsFixed(_precision);
-    _logic.setShouldResetInput(true);
-  }
-
-  void _onTrigFunction(String func) {
-    try {
-      double value = double.parse(_display);
-      double result = _logic.evaluateTrig(func, value);
-      _display = _logic.formatResult(result.toString());
-      _logic.setShouldResetInput(true);
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
-
-  void _onLogFunction(String func) {
-    try {
-      double value = double.parse(_display);
-      if (value <= 0) {
-        _errorMessage = 'Lỗi: Giá trị phải dương';
-        return;
-      }
-      double result = _logic.evaluateLog(func, value);
-      _display = _logic.formatResult(result.toString());
-      _logic.setShouldResetInput(true);
-    } catch (_) {
-      _errorMessage = 'Lỗi: Giá trị phải dương';
-    }
-  }
-
-  void _onPower(int exponent) {
-    try {
-      double value = double.parse(_display);
-      double result = math.pow(value, exponent).toDouble();
-      _display = _logic.formatResult(result.toString());
-      _logic.setShouldResetInput(true);
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
-
-  void _onSquareRoot() {
-    try {
-      double value = double.parse(_display);
-      if (value < 0) {
-        _errorMessage = 'Lỗi: Không thể lấy căn số âm';
-        return;
-      }
-      double result = math.sqrt(value);
-      _display = _logic.formatResult(result.toString());
-      _logic.setShouldResetInput(true);
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
-
-  void _onCubeRoot() {
-    try {
-      double value = double.parse(_display);
-      double result = math.pow(value.abs(), 1 / 3).toDouble();
-      if (value < 0) result = -result;
-      _display = _logic.formatResult(result.toString());
-      _logic.setShouldResetInput(true);
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
-
-  void _onFactorial() {
-    try {
-      double value = double.parse(_display);
-      if (value < 0 || value != value.roundToDouble()) {
-        _errorMessage = 'Lỗi: Phải là số nguyên không âm';
-        return;
-      }
-      int n = value.toInt();
-      double result = _logic.evaluateFactorial(n);
-      _display = _logic.formatResult(result.toString());
-      _logic.setShouldResetInput(true);
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
+  // === MEMORY ===
 
   void _onMemoryAdd() {
     try {
-      double current = double.parse(_display);
+      double current = double.parse(_result);
       double memVal = double.parse(_memory);
-      _memory = _logic.formatResult((memVal + current).toString());
+      _memory = CalculatorLogic.formatResult(memVal + current, _precision);
       _hasMemory = _memory != '0';
       _storageService.saveMemory(_memory);
     } catch (_) {}
@@ -386,17 +572,16 @@ class CalculatorProvider extends ChangeNotifier {
 
   void _onMemorySubtract() {
     try {
-      double current = double.parse(_display);
+      double current = double.parse(_result);
       double memVal = double.parse(_memory);
-      _memory = _logic.formatResult((memVal - current).toString());
+      _memory = CalculatorLogic.formatResult(memVal - current, _precision);
       _hasMemory = _memory != '0';
       _storageService.saveMemory(_memory);
     } catch (_) {}
   }
 
   void _onMemoryRecall() {
-    _display = _logic.formatResult(double.parse(_memory).toString());
-    _logic.setShouldResetInput(true);
+    _expression += _memory;
   }
 
   void _onMemoryClear() {
@@ -405,223 +590,114 @@ class CalculatorProvider extends ChangeNotifier {
     _storageService.saveMemory(_memory);
   }
 
-  String _evaluate(String expr) {
-    if (expr.isEmpty) return '0';
-
-    try {
-      String processed = _preprocessExpression(expr);
-      Parser parser = Parser();
-      ContextModel contextModel = ContextModel();
-      Expression exp = parser.parse(processed);
-      double result = exp.evaluate(EvaluationType.REAL, contextModel);
-
-      if (result.isNaN) return 'Lỗi';
-      if (result.isInfinite) return 'Vô cực';
-
-      return _logic.formatResult(result.toString());
-    } catch (e) {
-      return 'Lỗi';
-    }
-  }
-
-  String _preprocessExpression(String expr) {
-    String result = expr;
-
-    result = result.replaceAll('×', '*');
-    result = result.replaceAll('÷', '/');
-    result = result.replaceAll('−', '-');
-
-    result = result.replaceAll('π', math.pi.toString());
-    result = result.replaceAll('Π', math.pi.toString());
-
-    result = result.replaceAllMapped(
-      RegExp(r'(\d)(\()'),
-      (m) => '${m.group(1)}*${m.group(2)}',
-    );
-    result = result.replaceAllMapped(
-      RegExp(r'(\))(\d)'),
-      (m) => '${m.group(1)}*${m.group(2)}',
-    );
-    result = result.replaceAllMapped(
-      RegExp(r'(\))(\()'),
-      (m) => '${m.group(1)}*${m.group(2)}',
-    );
-
-    return result;
-  }
+  // === PROGRAMMER MODE ===
 
   void _handleProgrammerInput(String value) {
     switch (value) {
-      case 'C':
-        _programmerInput = '';
-        _display = '0';
-        _previousValue = null;
-        _pendingBitwiseOp = null;
+      case 'AC':
+        _expression = '';
+        _result = '0';
+        _previousExpression = '';
+        _hasError = false;
         break;
       case 'CE':
-        _programmerInput = '';
-        _display = '0';
+        _expression = '';
+        _hasError = false;
         break;
       case '⌫':
-        if (_programmerInput.isNotEmpty) {
-          _programmerInput = _programmerInput.substring(0, _programmerInput.length - 1);
-          _display = _programmerInput.isEmpty ? '0' : _programmerInput;
-        }
-        break;
-      case 'AND':
-      case 'OR':
-      case 'XOR':
-        _onBitwiseTwoOperand(value);
-        break;
-      case 'NOT':
-        _onBitwiseNot();
-        break;
-      case '<<':
-      case '>>':
-        _onBitShift(value);
-        break;
-      case 'BIN':
-      case 'OCT':
-      case 'DEC':
-      case 'HEX':
-        _changeBase(value);
+        _deleteLastCharacter();
         break;
       case '=':
-        _onProgrammerEquals();
+        _calculateResult();
+        break;
+      case 'AND':
+        _appendOperator('&');
+        break;
+      case 'OR':
+        _appendOperator('|');
+        break;
+      case 'XOR':
+        _appendOperator('^^');
+        break;
+      case 'NOT':
+        if (_hasError) {
+          _expression = '';
+          _hasError = false;
+        }
+        _expression += '~';
+        break;
+      case '<<':
+        _appendOperator('<<');
+        break;
+      case '>>':
+        _appendOperator('>>');
+        break;
+      case 'BIN':
+        _changeBase(2);
+        break;
+      case 'OCT':
+        _changeBase(8);
+        break;
+      case 'DEC':
+        _changeBase(10);
+        break;
+      case 'HEX':
+        _changeBase(16);
+        break;
+      case '+':
+      case '−':
+      case '×':
+      case '÷':
+        _appendOperator(value);
         break;
       default:
         if (_isValidDigit(value)) {
-          _programmerInput += value.toUpperCase();
-          _display = _programmerInput;
+          if (_hasError) {
+            _expression = '';
+            _result = '0';
+            _hasError = false;
+          }
+          _expression += value.toUpperCase();
         }
     }
     notifyListeners();
   }
 
+  void _changeBase(int newBase) {
+    // Chuyển đổi kết quả sang cơ số mới
+    if (_result != '0' && _result != 'Lỗi') {
+      try {
+        int intVal = CalculatorLogic.parseBase(_result);
+        _base = newBase;
+        _result = CalculatorLogic.toBase(intVal, _base);
+      } catch (_) {
+        _base = newBase;
+      }
+    } else {
+      _base = newBase;
+    }
+  }
+
   bool _isValidDigit(String digit) {
-    int d = int.tryParse(digit) ?? -1;
+    if (digit.length != 1) return false;
+
     switch (_base) {
-      case 2: return d >= 0 && d <= 1;
-      case 8: return d >= 0 && d <= 7;
-      case 10: return d >= 0 && d <= 9;
-      case 16: return RegExp(r'^[0-9A-Fa-f]$').hasMatch(digit);
-      default: return false;
-    }
-  }
-
-  void _changeBase(String newBase) {
-    if (_programmerInput.isEmpty) {
-      _base = newBase == 'BIN' ? 2 : (newBase == 'OCT' ? 8 : (newBase == 'DEC' ? 10 : 16));
-      return;
-    }
-
-    try {
-      int value = int.parse(_programmerInput, radix: _base);
-      _base = newBase == 'BIN' ? 2 : (newBase == 'OCT' ? 8 : (newBase == 'DEC' ? 10 : 16));
-      _programmerInput = value.toRadixString(_base).toUpperCase();
-      _display = _programmerInput;
-    } catch (_) {
-      _programmerInput = '';
-      _display = '0';
-    }
-  }
-
-  void _onBitwiseTwoOperand(String op) {
-    if (_programmerInput.isEmpty) return;
-    try {
-      int value = int.parse(_programmerInput, radix: _base);
-      if (_previousValue != null && _pendingBitwiseOp != null) {
-        int result = _applyBitwise(_previousValue!, _pendingBitwiseOp!, value);
-        _previousValue = result;
-        _programmerInput = result.toRadixString(_base).toUpperCase();
-        _display = _programmerInput;
-      } else {
-        _previousValue = value;
-        _pendingBitwiseOp = _getBitwiseOpCode(op);
-        _programmerInput = '';
-      }
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
-
-  int _getBitwiseOpCode(String op) {
-    switch (op) {
-      case 'AND': return 0;
-      case 'OR': return 1;
-      case 'XOR': return 2;
-      case '<<': return 3;
-      case '>>': return 4;
-      default: return -1;
-    }
-  }
-
-  int _applyBitwise(int a, int op, int b) {
-    switch (op) {
-      case 0: return a & b;
-      case 1: return a | b;
-      case 2: return a ^ b;
-      case 3: return a << b;
-      case 4: return a >> b;
-      default: return b;
-    }
-  }
-
-  void _onBitwiseNot() {
-    if (_programmerInput.isEmpty) return;
-    try {
-      int value = int.parse(_programmerInput, radix: _base);
-      int result = ~value;
-      _programmerInput = result.toRadixString(_base).toUpperCase();
-      _display = _programmerInput;
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
-
-  void _onBitShift(String op) {
-    if (_programmerInput.isEmpty) return;
-    try {
-      int value = int.parse(_programmerInput, radix: _base);
-      if (_previousValue != null && _pendingBitwiseOp != null) {
-        int result = _applyBitwise(_previousValue!, _getBitwiseOpCode(op), value);
-        _previousValue = result;
-        _programmerInput = result.toRadixString(_base).toUpperCase();
-        _display = _programmerInput;
-      } else {
-        _previousValue = value;
-        _pendingBitwiseOp = _getBitwiseOpCode(op);
-        _programmerInput = '';
-      }
-    } catch (_) {
-      _errorMessage = 'Lỗi';
-    }
-  }
-
-  void _onProgrammerEquals() {
-    if (_previousValue != null && _pendingBitwiseOp != null && _programmerInput.isNotEmpty) {
-      try {
-        int value = int.parse(_programmerInput, radix: _base);
-        int result = _applyBitwise(_previousValue!, _pendingBitwiseOp!, value);
-        _programmerInput = result.toRadixString(_base).toUpperCase();
-        _display = _programmerInput;
-        _previousValue = null;
-        _pendingBitwiseOp = null;
-      } catch (_) {
-        _errorMessage = 'Lỗi';
-      }
-    } else if (_programmerInput.isNotEmpty) {
-      try {
-        int value = int.parse(_programmerInput, radix: _base);
-        _display = '${value.toRadixString(_base).toUpperCase()}\nBIN: ${value.toRadixString(2)}\nOCT: ${value.toRadixString(8)}\nDEC: ${value.toRadixString(10)}\nHEX: ${value.toRadixString(16).toUpperCase()}';
-      } catch (_) {
-        _errorMessage = 'Lỗi';
-      }
+      case 2:
+        return digit == '0' || digit == '1';
+      case 8:
+        int? d = int.tryParse(digit);
+        return d != null && d >= 0 && d <= 7;
+      case 10:
+        return int.tryParse(digit) != null;
+      case 16:
+        return RegExp(r'^[0-9A-Fa-f]$').hasMatch(digit);
+      default:
+        return false;
     }
   }
 
   String getFullExpression() {
-    if (_expression.isEmpty) return _display;
-    return '$_expression$_display';
+    if (_expression.isEmpty) return _result;
+    return _expression;
   }
 }

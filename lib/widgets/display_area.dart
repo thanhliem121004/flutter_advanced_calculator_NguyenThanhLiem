@@ -8,6 +8,7 @@ class DisplayArea extends StatelessWidget {
   final bool hasMemory;
   final String? angleModeLabel;
   final VoidCallback? onHistorySwipe;
+  final VoidCallback? onDeleteSwipe;
 
   const DisplayArea({
     super.key,
@@ -17,18 +18,27 @@ class DisplayArea extends StatelessWidget {
     this.hasMemory = false,
     this.angleModeLabel,
     this.onHistorySwipe,
+    this.onDeleteSwipe,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final backgroundColor = isDark
+        ? AppColors.darkSurface
+        : AppColors.lightSurface;
     final textColor = isDark ? Colors.white : Colors.black87;
     final dimColor = textColor.withOpacity(0.45);
 
     return GestureDetector(
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity != null && details.primaryVelocity! > 200) {
+          onDeleteSwipe?.call();
+        }
+      },
+      onVerticalDragEnd: (details) {
+        if (details.primaryVelocity != null &&
+            details.primaryVelocity! < -200) {
           onHistorySwipe?.call();
         }
       },
@@ -40,7 +50,9 @@ class DisplayArea extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusDisplay),
+          borderRadius: BorderRadius.circular(
+            AppDimensions.borderRadiusDisplay,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
@@ -62,10 +74,15 @@ class DisplayArea extends StatelessWidget {
                     children: [
                       if (hasMemory)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           margin: const EdgeInsets.only(right: 6),
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.darkAccent : AppColors.lightAccent,
+                            color: isDark
+                                ? AppColors.darkAccent
+                                : AppColors.lightAccent,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -79,7 +96,10 @@ class DisplayArea extends StatelessWidget {
                         ),
                       if (angleModeLabel != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: isDark
                                 ? AppColors.darkAccent.withOpacity(0.25)
@@ -94,7 +114,9 @@ class DisplayArea extends StatelessWidget {
                           child: Text(
                             angleModeLabel!,
                             style: TextStyle(
-                              color: isDark ? AppColors.darkAccent : AppColors.lightAccent,
+                              color: isDark
+                                  ? AppColors.darkAccent
+                                  : AppColors.lightAccent,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -106,7 +128,10 @@ class DisplayArea extends StatelessWidget {
                   const SizedBox.shrink(),
                 if (errorMessage != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
@@ -114,11 +139,18 @@ class DisplayArea extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.red, size: 14),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           errorMessage!,
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -150,7 +182,9 @@ class DisplayArea extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: AppFonts.fontFamily,
                     fontWeight: FontWeight.w300,
-                    color: errorMessage != null ? Colors.red.shade400 : textColor,
+                    color: errorMessage != null
+                        ? Colors.red.shade400
+                        : textColor,
                     fontSize: display.length > 12 ? 38 : 52,
                   ),
                 ),

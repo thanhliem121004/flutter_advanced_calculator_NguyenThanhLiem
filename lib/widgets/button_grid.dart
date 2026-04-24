@@ -33,6 +33,7 @@ class ButtonGrid extends StatelessWidget {
 
   Widget _buildBasicGrid(BuildContext context) {
     final rows = [
+      ['MC', 'MR', 'M-', 'M+'],
       ['C', '⌫', '%', '÷'],
       ['7', '8', '9', '×'],
       ['4', '5', '6', '−'],
@@ -47,7 +48,8 @@ class ButtonGrid extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 5),
             child: Row(
               children: [
-                for (String btn in row) Expanded(child: _buildButton(context, btn)),
+                for (String btn in row)
+                  Expanded(child: _buildButton(context, btn)),
               ],
             ),
           ),
@@ -57,12 +59,12 @@ class ButtonGrid extends StatelessWidget {
 
   Widget _buildScientificGrid(BuildContext context) {
     final buttons = [
-      ['sin', 'cos', 'tan', 'ln', 'log'],
-      ['x²', '√', 'xʸ', '(', ')'],
-      ['x³', '∛', 'π', 'e', '!'],
-      ['%', '±', '.', '⌫', 'C'],
-      ['2nd', '(', ')', '=', '+'],
-      ['DEG', '0', '−', '×', '÷'],
+      ['2nd', 'sin', 'cos', 'tan', 'ln', 'log'],
+      ['x²', '√', 'xʸ', '(', ')', '÷'],
+      ['MC', '7', '8', '9', 'C', '×'],
+      ['MR', '4', '5', '6', 'CE', '−'],
+      ['M+', '1', '2', '3', '%', '+'],
+      ['M-', '±', '0', '.', 'π', '='],
     ];
 
     return Column(
@@ -83,7 +85,7 @@ class ButtonGrid extends StatelessWidget {
 
   Widget _buildProgrammerGrid(BuildContext context) {
     final buttons = [
-      ['BIN', 'OCT', 'DEC', 'HEX', 'C'],
+      ['BIN', 'OCT', 'DEC', 'HEX', 'AC'],
       ['AND', 'OR', 'XOR', '<<', '>>'],
       ['7', '8', '9', 'A', 'B'],
       ['4', '5', '6', 'C', 'D'],
@@ -150,7 +152,9 @@ class ButtonGrid extends StatelessWidget {
         label: label,
         type: type,
         onPressed: () => onButtonPressed(label),
-        onLongPress: label == 'C' && onClearHistory != null ? onClearHistory! : null,
+        onLongPress: label == 'C' && onClearHistory != null
+            ? onClearHistory!
+            : null,
       ),
     );
   }
@@ -159,7 +163,7 @@ class ButtonGrid extends StatelessWidget {
     CalcButtonType type;
 
     switch (label) {
-      case 'C':
+      case 'AC':
         type = CalcButtonType.clear;
         break;
       case '=':
@@ -191,7 +195,9 @@ class ButtonGrid extends StatelessWidget {
         label: label,
         type: type,
         onPressed: () => onButtonPressed(label),
-        onLongPress: label == 'C' && onClearHistory != null ? onClearHistory! : null,
+        onLongPress: label == 'AC' && onClearHistory != null
+            ? onClearHistory!
+            : null,
       ),
     );
   }
@@ -233,7 +239,9 @@ class ButtonGrid extends StatelessWidget {
         label: label,
         type: type,
         onPressed: () => onButtonPressed(label),
-        onLongPress: label == 'C' && onClearHistory != null ? onClearHistory! : null,
+        onLongPress: label == 'C' && onClearHistory != null
+            ? onClearHistory!
+            : null,
       ),
     );
   }

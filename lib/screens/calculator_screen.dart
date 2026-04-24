@@ -26,14 +26,18 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
       body: SafeArea(
         child: Column(
           children: [
             _buildHeader(context, isDark),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppDimensions.screenPadding),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimensions.screenPadding,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -45,10 +49,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                           display: calculator.display,
                           errorMessage: calculator.errorMessage,
                           hasMemory: calculator.hasMemory,
-                          angleModeLabel: calculator.mode == CalculatorMode.scientific
-                              ? (calculator.angleMode == AngleMode.degrees ? 'DEG' : 'RAD')
+                          angleModeLabel:
+                              calculator.mode == CalculatorMode.scientific
+                              ? (calculator.angleMode == AngleMode.degrees
+                                    ? 'DEG'
+                                    : 'RAD')
                               : null,
                           onHistorySwipe: () => _openHistory(context),
+                          onDeleteSwipe: () => calculator.onButtonPressed('⌫'),
                         ),
                         const SizedBox(height: 8),
                         _buildMemoryIndicator(calculator),
@@ -69,7 +77,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                             calculator.onButtonPressed(value);
                             if (value == '=') {
                               final expr = calculator.getFullExpression();
-                              if (expr.isNotEmpty && calculator.display != 'Lỗi') {
+                              if (expr.isNotEmpty &&
+                                  calculator.display != 'Lỗi') {
                                 history.addEntry(
                                   expr,
                                   calculator.display,
@@ -78,7 +87,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                               }
                             }
                           },
-                          onClearHistory: () => _showClearHistoryDialog(context),
+                          onClearHistory: () =>
+                              _showClearHistoryDialog(context),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -178,8 +188,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             decoration: BoxDecoration(
               color: calculator.isSecondFunction
                   ? (Theme.of(context).brightness == Brightness.dark
-                      ? AppColors.darkAccent
-                      : AppColors.lightAccent)
+                        ? AppColors.darkAccent
+                        : AppColors.lightAccent)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
@@ -196,8 +206,8 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 color: calculator.isSecondFunction
                     ? Colors.white
                     : (Theme.of(context).brightness == Brightness.dark
-                        ? AppColors.darkAccent
-                        : AppColors.lightAccent),
+                          ? AppColors.darkAccent
+                          : AppColors.lightAccent),
               ),
             ),
           ),
@@ -273,7 +283,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Xóa lịch sử'),
-        content: const Text('Bạn có chắc muốn xóa toàn bộ lịch sử tính toán không?'),
+        content: const Text(
+          'Bạn có chắc muốn xóa toàn bộ lịch sử tính toán không?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),

@@ -1,128 +1,114 @@
 import 'dart:math' as math;
-
-enum ButtonType {
-  number,
-  operator,
-  function,
-  equals,
-  clear,
-  memory,
-  parenthesis,
-  scientific,
-}
+import '../models/calculator_settings.dart';
 
 class CalculatorLogic {
-  String _expression = '';
-  String _currentNumber = '0';
-  String _displayExpression = '';
-  String _memory = '0';
-  bool _shouldResetInput = false;
-  bool _isRadiansMode = false;
-  int _precision = 10;
-  double? _lastResult;
-  bool _isSecondFunction = false;
-
-  String get expression => _displayExpression;
-  String get currentNumber => _currentNumber;
-  String get memory => _memory;
-  bool get shouldResetInput => _shouldResetInput;
-  bool get isRadiansMode => _isRadiansMode;
-  bool get hasMemory => _memory != '0';
-  bool get isSecondFunction => _isSecondFunction;
-  double? get lastResult => _lastResult;
-
-  set radiansMode(bool value) => _isRadiansMode = value;
-  set precision(int value) => _precision = value;
-
-  void setMemory(String value) => _memory = value;
-
-  void toggleSecondFunction() {
-    _isSecondFunction = !_isSecondFunction;
-  }
-
-  void clearAll() {
-    _expression = '';
-    _currentNumber = '0';
-    _displayExpression = '';
-    _shouldResetInput = false;
-    _lastResult = null;
-  }
-
-  void clearEntry() {
-    _currentNumber = '0';
-    _displayExpression = _expression;
-  }
-
-  void setCurrentNumber(String value) {
-    _currentNumber = value;
-  }
-
-  void setExpression(String value) {
-    _expression = value;
-  }
-
-  void setShouldResetInput(bool value) {
-    _shouldResetInput = value;
-  }
-
-  void setLastResult(double? value) {
-    _lastResult = value;
-  }
-
-  void appendExpression(String value) {
-    _expression += value;
-  }
-
-  String formatNumber(double value) {
-    if (value == value.roundToDouble() && value.abs() < 1e15) {
-      return value.toInt().toString();
+  static double factorial(double n) {
+    if (n < 0 || n != n.truncateToDouble()) {
+      throw ArgumentError('Factorial requires non-negative integer');
     }
-    return value.toStringAsFixed(_precision);
-  }
-
-  double evaluateFactorial(int n) {
-    if (n < 0) throw FormatException('Giai thừa không xác định cho số âm');
-    if (n > 170) throw FormatException('Giai thừa quá lớn');
-    if (n <= 1) return 1;
+    int val = n.toInt();
+    if (val > 170) return double.infinity;
     double result = 1;
-    for (int i = 2; i <= n; i++) {
+    for (int i = 2; i <= val; i++) {
       result *= i;
     }
     return result;
   }
 
-  double evaluateTrig(String func, double value) {
-    double angle = _isRadiansMode ? value : value * math.pi / 180;
-    switch (func) {
-      case 'sin': return math.sin(angle);
-      case 'cos': return math.cos(angle);
-      case 'tan': return math.tan(angle);
-      case 'asin': return _isRadiansMode ? math.asin(value) : math.asin(value) * 180 / math.pi;
-      case 'acos': return _isRadiansMode ? math.acos(value) : math.acos(value) * 180 / math.pi;
-      case 'atan': return _isRadiansMode ? math.atan(value) : math.atan(value) * 180 / math.pi;
-      default: return value;
-    }
+  static double sin(double value, AngleMode mode) {
+    double angle = mode == AngleMode.degrees ? value * math.pi / 180 : value;
+    double result = math.sin(angle);
+    if (result.abs() < 1e-15) return 0;
+    return result;
   }
 
-  double evaluateLog(String func, double value) {
-    if (value <= 0) throw FormatException('Log không xác định cho giá trị không dương');
-    switch (func) {
-      case 'ln': return math.log(value);
-      case 'log': return math.log(value) / math.ln10;
-      default: return value;
-    }
+  static double cos(double value, AngleMode mode) {
+    double angle = mode == AngleMode.degrees ? value * math.pi / 180 : value;
+    double result = math.cos(angle);
+    if (result.abs() < 1e-15) return 0;
+    return result;
   }
 
-  String formatResult(String result) {
-    if (result == 'Lỗi' || result == 'Vô cực') return result;
-    double? num = double.tryParse(result);
-    if (num == null) return result;
-    if (num == num.roundToDouble() && num.abs() < 1e15) {
-      return num.toInt().toString();
+  static double tan(double value, AngleMode mode) {
+    double angle = mode == AngleMode.degrees ? value * math.pi / 180 : value;
+    return math.tan(angle);
+  }
+
+  static double asin(double value, AngleMode mode) {
+    double result = math.asin(value);
+    return mode == AngleMode.degrees ? result * 180 / math.pi : result;
+  }
+
+  static double acos(double value, AngleMode mode) {
+    double result = math.acos(value);
+    return mode == AngleMode.degrees ? result * 180 / math.pi : result;
+  }
+
+  static double atan(double value, AngleMode mode) {
+    double result = math.atan(value);
+    return mode == AngleMode.degrees ? result * 180 / math.pi : result;
+  }
+
+  static double ln(double value) => math.log(value);
+  static double log10(double value) => math.log(value) / math.ln10;
+  static double log2(double value) => math.log(value) / math.ln2;
+
+  static double squareRoot(double value) {
+    if (value < 0) throw ArgumentError('Cannot sqrt negative number');
+    return math.sqrt(value);
+  }
+
+  static double cubeRoot(double value) {
+    if (value < 0) return -math.pow(-value, 1.0 / 3.0).toDouble();
+    return math.pow(value, 1.0 / 3.0).toDouble();
+  }
+
+  static double power(double base, double exponent) =>
+      math.pow(base, exponent).toDouble();
+
+  static String toBase(int value, int base) {
+    if (base == 2) {
+      String s = value.toRadixString(2).toUpperCase();
+      if (s.length % 4 != 0) s = s.padLeft((s.length / 4).ceil() * 4, '0');
+      return '0b$s';
     }
-    String formatted = num.toStringAsFixed(_precision);
-    formatted = formatted.replaceAll(RegExp(r'0+$'), '');
-    formatted = formatted.replaceAll(RegExp(r'\.$'), '');
+    if (base == 8) return '0o${value.toRadixString(8).toUpperCase()}';
+    if (base == 16) {
+      String s = value.toRadixString(16).toUpperCase();
+      if (s.length % 2 != 0) s = s.padLeft(s.length + 1, '0');
+      return '0x$s';
+    }
+    return value.toString();
+  }
+
+  static int parseBase(String value) {
+    value = value.trim().toUpperCase();
+    if (value.startsWith('0B')) return int.parse(value.substring(2), radix: 2);
+    if (value.startsWith('0O')) return int.parse(value.substring(2), radix: 8);
+    if (value.startsWith('0X')) return int.parse(value.substring(2), radix: 16);
+    return int.parse(value);
+  }
+
+  static int bitwiseAnd(int a, int b) => a & b;
+  static int bitwiseOr(int a, int b) => a | b;
+  static int bitwiseXor(int a, int b) => a ^ b;
+  static int bitwiseNot(int a) => ~a;
+  static int leftShift(int a, int b) => a << b;
+  static int rightShift(int a, int b) => a >> b;
+
+  static String formatResult(double value, int precision) {
+    if (value.isNaN) return 'Lỗi';
+    if (value.isInfinite) return 'Vô cực';
+
+    if (value == value.truncateToDouble() && value.abs() < 1e15) {
+      return value.toInt().toString();
+    }
+
+    String formatted = value.toStringAsFixed(precision);
+    if (formatted.contains('.')) {
+      formatted = formatted.replaceAll(RegExp(r'0+$'), '');
+      formatted = formatted.replaceAll(RegExp(r'\.$'), '');
+    }
     return formatted;
   }
 }
